@@ -1,0 +1,41 @@
+name: build
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      # Setup Docker buld action
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Login to GitHub Packages
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute target image labels
+        run: |
+          ARGOCD_VERSION=$(head -1 Dockerfile | cut -d= -f2 | sed 's/"//g' | sed 's/v//')
+          echo ::set-output name=ghcr::"ghcr.io/${{ github.actor }}/argocd-sops"
+          echo ::set-output name=ghcr_tag::"ghcr.io/${{ github.actor }}/argocd-sops:$ARGOCD_VERSION"
+        id: image
+
+      - name: Push image
+        uses: docker/build-push-action@v2
+        with:
+          tags: |
+            ${{ steps.image.outputs.ghcr }}:latest
+            ${{ steps.image.outputs.ghcr_tag }}
+          push: true
